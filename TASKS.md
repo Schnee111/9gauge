@@ -1,32 +1,33 @@
 # Tasks Execution Plan: 9Gauge
 
-## Status: Ready for Execution (GATE 1 Review)
-**Target:** Monorepo Tauri v2 + Rust Core + Svelte 5 Frontend  
+## Status: Ready for Execution (GATE 1 Review — revised after live audit 2026-09-22)
+**Target:** Monorepo Tauri v2 + Rust Core + Svelte 5 Frontend
+**Workspace topology:** `crates/9gauge-core` (headless, testable di VPS) + `src-tauri` (GUI shell) + `src/` (Svelte 5). Lihat `docs/ARCHITECTURE.md` §0.
 
 ---
 
-## Phase 1 — Core Scaffolding & Native Desktop Host (Tasks 1–3)
+## Phase 1 — Headless Core & Telemetry Engine (Rust, no GUI deps)
 
-### Task 1: Scaffolding & Dependency Matrix
-- [ ] Initialize Tauri v2 project structure (`src-tauri` + frontend root with Svelte 5).
-- [ ] Configure `Cargo.toml` with `tauri`, `tokio`, `reqwest`, `eventsource-stream`, `serde`, `serde_json`, `arc-swap`, `compact_str`.
-- [ ] Configure `package.json` with Svelte 5, Tailwind CSS, `@tauri-apps/api`, Lucide icons.
-- **Verification:** `cargo check` and `pnpm build` pass with exit code 0.
+### Task 1: Cargo Workspace & Core Scaffolding
+- [ ] Initialize workspace: `Cargo.toml` (`members = ["crates/*", "src-tauri"]`) + `crates/9gauge-core`.
+- [ ] Core deps: `tokio`, `reqwest` (cookies, json, stream), `eventsource-stream`, `serde`, `serde_json`, `arc-swap`, `compact_str`, `secrecy`, `thiserror`, `tracing`.
+- [ ] `models.rs`: fail-open serde contracts — `UsageSnapshot`, `ProviderEntry`, `RecentRequest`, `ActiveRequest` — semua `#[serde(default)]`, verifikasi terhadap fixture payload live (termasuk `last10Minutes`, `pending`, `byApiKey`, `byEndpoint`).
+- **Verification:** `cargo test -p 9gauge-core` lulus di VPS headless (fixture = payload live yang di-capture).
 
-### Task 2: Native Tray, Window Pre-Warming & Suspension Governance
-- [ ] Implement `src-tauri/src/tray.rs` utilizing `TrayIconBuilder`.
-- [ ] Configure dynamic tray title and custom status dot rendering.
-- [ ] Implement non-activating popover window positioning with `tauri-plugin-positioner`.
-- [ ] Implement auto-hide on `WindowEvent::Focused(false)`.
-- [ ] Implement background Webview suspension hooks (`TrySuspend` on Windows / alpha loop detach on macOS).
-- **Verification:** Tray icon appears, left-click opens popover without stealing terminal focus, blur dismisses cleanly.
+### Task 2: Auth Strategies (ADR-0003) — Local CLI Token & Dashboard Session
+- [ ] `AuthStrategy::LocalCli` — baca `machine-id` + `auth/cli-secret` dari data dir 9Router, derive `sha256(raw + "9r-cli-auth" + secret)[0..16]`, kirim header `x-9r-cli-token`.
+- [ ] `AuthStrategy::DashboardSession` — `POST /api/auth/login` dengan password keychain → cache JWT in-memory → header `Cookie: auth_token=...`.
+- [ ] Silent re-login pada 401 (throttle ≥60s, lockout-safe); JWT TIDAK pernah disimpan ke disk.
+- [ ] DILARANG mengirim Bearer API key ke endpoint telemetri (terverifikasi 401).
+- **Verification:** Integration test ke live 9Router (localhost:20128) → 200 di kedua strategi; mock 401 → re-login tunggal.
 
 ### Task 3: Async Telemetry Ingestion & State Pipeline
-- [ ] Implement `src-tauri/src/telemetry/client.rs` using Tokio async SSE (`/api/usage/stream`).
-- [ ] Implement exponential backoff reconnect (`1s` to `30s`) and watchdog heartbeat check.
-- [ ] Implement lock-free `ArcSwap<AppState>` and `RecentRequestsRingBuffer<20>` in `src-tauri/src/telemetry/state.rs`.
-- [ ] Implement 20Hz adaptive IPC event debouncer to Webview.
-- **Verification:** Simulated SSE stream pushes events through Rust core and emits to Webview under 1ms.
+- [ ] `telemetry/sse.rs` — consume `/api/usage/stream` via `eventsource-stream`; heartbeat watchdog 35s (`: ping` aktual 25s).
+- [ ] `telemetry/rest.rs` — fallback/poller `/api/usage/stats?period=` (`today|24h|7d|30d|60d|all`).
+- [ ] Reconnect FSM: `Connecting → Healthy → Degraded → Disconnected → Reconnecting`; jittered backoff 1s→30s.
+- [ ] `state.rs` — `ArcSwap<AppState>` + `RecentRequestsRingBuffer<20>` (CompactStr).
+- [ ] TANPA debouncer IPC (audit: server sudah throttle 150–250ms); TANPA deep COM suspend (MVP = hide + IPC pause signal; deep suspend P2).
+- **Verification:** `cargo test -p 9gauge-core` (mock SSE server di test) + integration test melawan live stream.
 
 ---
 
@@ -41,29 +42,30 @@
 ### Task 5: Hero Token Meter & Segmented Visualizer
 - [ ] Build `HeroTokenMeter.svelte` displaying total consumed tokens with smooth tabular counting.
 - [ ] Build segmented progress bar showing Prompt vs. Completion vs. Cached tokens with tooltips.
-- [ ] Surface token velocity (`tokens/hour`) and request throughput (`req/min`).
+- [ ] Surface token velocity dari `last10Minutes[]` (bukan perhitungan klien) dan request throughput (`req/min`).
 - **Verification:** Numbers render cleanly with `tabular-nums` without font shaking during rapid count updates.
 
-### Task 6: Provider Cards & Real-Time Micro-Feed
-- [ ] Build `ProviderList.svelte` rendering cards for Google AG, OpenRouter, Kiro, and DeepSeek.
-- [ ] Surface balance (`$14.20 left`), reset cycle countdown, and health pill.
-- [ ] Build `MicroFeed.svelte` displaying the last 3 requests with timestamp, model, latency, and status code.
+### Task 6: Provider Cards & Real-Time Micro-Feed (DATA-DRIVEN — audit revised)
+- [ ] Build `ProviderList.svelte` rendering cards **dinamis dari key `byProvider`** — DILARANG hardcode daftar provider (live: `antigravity`, `qoder`, `openai-compatible-chat-<uuid>`).
+- [ ] Surface balance / reset cycle / health pill bila metadata kuota tersedia (periode-agnostik untuk provider tanpa kuota).
+- [ ] Build `MicroFeed.svelte` displaying recent requests dengan timestamp, model, latency, dan status code.
 - [ ] Build `RTKSavingsBadge.svelte` showing tokens compressed by 9Router.
-- **Verification:** Correctly parses and displays multi-provider usage from 9Router telemetry snapshot.
+- **Verification:** Correctly parses and displays multi-provider usage from live 9Router telemetry snapshot.
 
 ---
 
-## Phase 3 — Sentinel Alerting & Packaging (Tasks 7–8)
+## Phase 3 — Tauri Shell, Sentinel Alerting & Packaging (Tasks 7–9)
 
-### Task 7: Sentinel Alerts & Host Switcher
-- [ ] Implement native OS notification triggers for HTTP 429 rate limits and low balance (< $2.00).
-- [ ] Implement Settings flyout to switch host between Localhost (`localhost:20128`) and Remote VPS (`https://9router.aeter.my.id`) with Bearer token persistence in OS keychain.
-- **Verification:** Triggering a mock 429 emits native OS toast notification and updates status dot to Rose.
+### Task 7: Tauri Shell Integration, Tray Adapter & Host Switcher
+- [ ] `src-tauri` mengonsumsi `9gauge-core` (tanpa logic telemetri di shell).
+- [ ] Tray adapter per-platform: macOS = dynamic text title + dot; Windows/Linux = ikon bitmap status + tooltip (DILARANG tray text — audit).
+- [ ] Popover: pre-warmed, non-activating (macOS NSPanel + global mouse-down monitor untuk dismissal — `Focused(false)` hanya fallback/Win/Linux).
+- [ ] Implement Settings flyout untuk switch host Localhost ↔ Remote VPS; remote auth = dashboard password di OS keychain + silent re-login (ADR-0003).
+- [ ] Native OS notification untuk HTTP 429 dan low balance (< $2.00).
+- **Verification:** Mock 429 → toast OS + dot Rose; switch host → auth flow sesuai strategi masing-masing.
 
 ### Task 8: CI/CD Multi-Platform Build Pipeline
-- [ ] Create `.github/workflows/release.yml` with matrix:
-  - macOS (Universal Apple Silicon + Intel DMG)
-  - Windows (NSIS `.exe` + `.msi`)
-  - Linux (`.deb` + `.AppImage`)
+- [ ] Create `.github/workflows/release.yml` with matrix: macOS (Universal DMG), Windows (NSIS + MSI), Linux (deb + AppImage).
+- [ ] CI job headless: `cargo fmt --check && cargo clippy -D warnings && cargo test` pada `crates/9gauge-core` (tanpa GUI deps).
 - [ ] Author final release notes and binary signing configuration.
 - **Verification:** GitHub Actions runner compiles and outputs artifacts successfully.

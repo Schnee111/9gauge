@@ -1,8 +1,28 @@
 # System Architecture Document
 
 ## Project: 9Gauge (9Router Desktop HUD)
-**Status:** In-Review (GATE 1)  
+**Status:** In-Review (GATE 1 — revised after live audit 2026-09-22)  
 **Target Platforms:** macOS 13+, Windows 10/11, Linux (X11 / Wayland)  
+
+---
+
+## 0. Crate Topology (Revised — Headless Core Split)
+
+Karena VPS/CI environment umumnya headless (tanpa `webkit2gtk`/`pkg-config`), seluruh logic inti di-decouple dari shell Tauri agar tetap bisa di-build dan di-test (`cargo test`) tanpa dependensi GUI:
+
+```
+9gauge/
+├── crates/
+│   └── 9gauge-core/        # Pure Rust, headless, 100% unit-testable di VPS/CI
+│       ├── telemetry/      # SSE + REST client, auth strategies, reconnect FSM
+│       ├── models.rs       # Fail-open serde contracts (#[serde(default)])
+│       └── state.rs        # ArcSwap<AppState>, ring buffer
+├── src-tauri/              # Thin shell: tray, window lifecycle, IPC bridge (butuh GUI deps)
+├── src/                    # Svelte 5 frontend (AETER frosted glass)
+└── Cargo.toml              # [workspace] members = ["crates/*", "src-tauri"]
+```
+
+Aturan: `src-tauri` dilarang berisi logic telemetri; ia hanya mengonsumsi `9gauge-core`.
 
 ---
 
@@ -73,9 +93,7 @@ flowchart TD
 - **Storage:** `ArcSwap<AppState>` for lock-free, atomic reads from the UI thread without lock contention.
 - **Fixed-Capacity Ring Buffer:** `RecentRequestsRingBuffer<20>`:
   - Uses fixed memory slots with inline strings (`CompactStr`) to prevent heap reallocations during request bursts.
-- **Adaptive IPC Throttling:**
-  - Caps Webview event dispatching at **20 Hz (50ms debouncing)** with dirty-flag detection.
-  - Prevents IPC bus flooding when parallel coding agents burst 20+ tool calls simultaneously.
+- **IPC Throttling (Revised — audit):** Debouncer 20Hz **dihapus** — 9Router sudah membatasi laju event sendiri via `scheduleStatsEvent` (throttle 150–250ms ≈ 4–6 event/s, sisi server, di `usageRepo.js`). Klien cukup melakukan atomic swap per event; Svelte 5 reactivity menangani render. Dirty-flag tracker dihapus dari core.
 
 ### 2.3 Window Lifecycle & Non-Activating Popover Mechanics
 - **Zero-Flicker Pre-Warming:**
@@ -83,19 +101,35 @@ flowchart TD
   - Coordinate calculation occurs *before* unhiding, eliminating default (0,0) jump artifacts.
 - **macOS (`NSPanel`):**
   - Configured with `.nonactivatingPanel` and `canBecomeKeyWindow = NO` so clicking the tray popover does not steal keyboard focus from Cursor, VSCode, or terminal.
+  - **Dismissal koreksi (audit):** Panel non-activating tidak pernah menjadi key window, sehingga `WindowEvent::Focused(false)` **tidak akan terpicu**. Dismissal memakai global `NSEvent` mouse-down monitor: klik di luar bounds popover → `window.hide()`. `Focused(false)` dipertahankan sebagai fallback untuk jalur aktivasi terkontrol.
 - **Windows (Win32):**
   - Utilizes `Shell_NotifyIcon` coordinates and `GetCursorPos` with clamping to prevent offscreen rendering on multi-monitor setups.
-- **Auto-Blur Dismissal:**
-  - Listens to `WindowEvent::Focused(false)` to immediately call `window.hide()`.
+  - `WindowEvent::Focused(false)` tetap valid di sini (popover menerima fokus) → auto-hide.
+- **Auto-Blur Dismissal (Linux):** `Focused(false)` pada popover yang difokuskan saat dibuka.
 
-### 2.4 Suspended Webview Governance (Power & Battery Preservation)
-- When the popover is hidden:
+### 2.4 Tray UX Per-Platform (Revised — Text Rendering Reality)
+- **macOS:** `NSStatusItem` mendukung teks native → dynamic title `✦ 9R · 1.2M · $0.42 ●` dirender penuh.
+- **Windows / Linux:** `Shell_NotifyIcon` / AppIndicator **hanya mendukung ikon bitmap** — dilarang mengandalkan tray text. Strategi:
+  - Ikon status dot dinamis (Emerald / Amber / Rose / Slate) di-render ke bitmap 32×32 (dengan angka ringkas saat perf memungkinkan).
+  - Tooltip mengikuti teks lengkap (`9Gauge: 1.2M tok · $0.42`).
+  - Angka burn tetap terlihat via popover, bukan tray.
+
+### 2.5 Suspended Webview Governance (Power & Battery Preservation)
+- **MVP (revised):** `window.hide()` + sinyal IPC ke Svelte 5 untuk menghentikan `requestAnimationFrame`/CSS animation/interval → daya idle turun signifikan tanpa kode unsafe COM.
+- **P1/P2 (deferred):** Deep suspension via OS API:
   - Windows: Invokes `ICoreWebView2_3::TrySuspend` / Low memory target to drop background CPU/GPU to 0.0%.
   - macOS: Halts animation frames and decouples WebKit alpha compositing, dropping idle background power draw from ~620 mW to < 50 mW.
 
 ---
 
 ## 3. Data Contracts & Serialization
+
+### Empirically Verified Live Payload (2026-09-22, `GET /api/usage/stats?period=today`)
+Kontrak di bawah TERVERIFIKASI terhadap payload produksi. Field tambahan di luar draft awal:
+- `last10Minutes[]` — bucket throughput per menit (`requests`, `promptTokens`, `completionTokens`, `cost`) → bahan burn-rate tanpa perhitungan klien.
+- `pending.byModel` / `pending.byAccount` — permintaan in-flight.
+- `byApiKey` (key masked `sk-***`), `byEndpoint` — agregasi silang.
+- **Provider names are DYNAMIC keys** (`antigravity`, `qoder`, `openai-compatible-chat-<uuid>`, ...) — UI dilarang hardcode.
 
 ### Ingested Snapshot Schema (`GET /api/usage/stats?period=today`)
 ```json

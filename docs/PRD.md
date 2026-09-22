@@ -1,5 +1,8 @@
 # Product Requirements Document (PRD)
 
+# PRD.md changelog
+- **2026-09-22 (GATE 1 Audit):** Remote auth koreksi — Bearer API key **tidak** diterima di `/api/usage/*` (terverifikasi 401 live); gunakan CLI token (lokal) atau dashboard session cookie JWT (remote) + silent re-login tiap 24 jam (lihat `docs/ADR/0003-telemetry-auth-strategy.md`).
+
 ## Project: 9Gauge (9Router Desktop HUD & Telemetry Companion)
 **Version:** 1.0.0-draft  
 **Status:** In-Review (GATE 1)  
@@ -35,13 +38,13 @@ Developers running AI coding agents (Claude Code, Hermes Agent, Cursor, OpenCode
   - Prompt Tokens (Input)
   - Completion Tokens (Output)
   - Cached Tokens (Cache Hits — Anthropic/Gemini caching)
-- **Upstream Provider Breakdown:** Per-provider usage, percentage share, and remaining quota/balance (OpenRouter credits, DeepSeek balance, Kiro cycle).
+- **Upstream Provider Breakdown (Data-Driven):** Per-provider usage, percentage share, and remaining quota/balance, rendered **dynamically dari key `byProvider`** pada payload stats. *(Koreksi audit: nama provider bersifat dinamis — live data memuat `antigravity`, `qoder`, `openai-compatible-chat-<uuid>` — dilarang hardcode daftar provider.)*
 - **Auto-Reconnect & Offline State:** Exponential backoff reconnect with graceful UI degradation if 9Router restarts.
 
 ### P1 — High-Signal Enhancements
 - **RTK Token-Killer Gauge:** Highlights total tokens compressed and saved by 9Router's RTK pre-translate filters.
 - **Native OS Toast Notifications:** Triggers native OS alert on HTTP 429 rate limit or low balance (< $2.00 / < 15% quota).
-- **Dual-Instance Host Switcher:** Instant toggle between `Localhost (http://127.0.0.1:20128)` and `Remote VPS (https://9router.aeter.my.id)`.
+- **Dual-Instance Host Switcher:** Instant toggle between `Localhost (http://127.0.0.1:20128)` and `Remote VPS (https://9router.aeter.my.id)`. *(Auth koreksi: remote memakai dashboard password via keychain + session cookie JWT + silent re-login 24h — BUKAN Bearer API key; lihat `docs/ADR/0003-telemetry-auth-strategy.md`.)*
 - **Period Filter:** Quick toggle for `Today`, `24h`, `7d`, `All`.
 
 ### P2 — Polish & Telemetry
