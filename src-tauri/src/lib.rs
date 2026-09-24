@@ -59,8 +59,8 @@ fn quit_app(app: AppHandle) {
 }
 
 #[tauri::command]
-async fn set_period(period: String, state: State<'_, AppSharedState>) -> Result<(), String> {
-    info!("Period switched to {}", period);
+async fn set_period(_period: String, _state: State<'_, AppSharedState>) -> Result<(), String> {
+    info!("Period switched to {}", _period);
     // Period change is reflected on next stats polling cycle
     Ok(())
 }

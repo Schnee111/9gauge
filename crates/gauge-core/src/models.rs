@@ -4,7 +4,7 @@
 //! must NEVER crash the desktop daemon (AGENTS.md guardrail #4).
 //! Contract verified against live payload on 2026-09-22 (see docs/ARCHITECTURE.md §3).
 
-use serde::{Deserialize, Deserializer};
+use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::BTreeMap;
 
 /// Tolerant deserializer that turns explicit `null` in JSON into `Default::default()`.
@@ -18,7 +18,7 @@ where
 }
 
 /// Per-slice counters used across `byProvider`, `byModel`, `byAccount`, ...
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct CounterEntry {
     pub requests: u64,
@@ -32,7 +32,7 @@ pub struct CounterEntry {
 }
 
 /// A finished request passing through 9Router (ring buffer / feed item).
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct RecentRequest {
     pub timestamp: String,
@@ -45,7 +45,7 @@ pub struct RecentRequest {
 }
 
 /// An in-flight request (server-side pending map).
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct ActiveRequest {
     pub model: String,
@@ -55,7 +55,7 @@ pub struct ActiveRequest {
 }
 
 /// One per-minute throughput bucket from the server (`last10Minutes`).
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct ThroughputBucket {
     pub requests: u64,
@@ -66,7 +66,7 @@ pub struct ThroughputBucket {
 
 /// Full snapshot as emitted by `GET /api/usage/stats?period=...` and the
 /// `data:` frames of `GET /api/usage/stream`.
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct UsageSnapshot {
     pub total_requests: u64,
