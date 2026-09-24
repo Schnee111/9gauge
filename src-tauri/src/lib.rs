@@ -9,8 +9,8 @@ use tauri::{
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     AppHandle, Emitter, Manager, State, WindowEvent,
 };
-use tokio::sync::{watch, Mutex};
-use tracing::{info, warn};
+use tokio::sync::watch;
+use tracing::info;
 
 use gauge_core::auth::{AuthStrategy, LocalCli};
 use gauge_core::state::{AppState, ConnectionState, StateHub};
@@ -59,8 +59,8 @@ fn quit_app(app: AppHandle) {
 }
 
 #[tauri::command]
-async fn set_period(_period: String, _state: State<'_, AppSharedState>) -> Result<(), String> {
-    info!("Period switched to {}", _period);
+async fn set_period(period: String, _state: State<'_, AppSharedState>) -> Result<(), String> {
+    info!("Period switched to {}", period);
     // Period change is reflected on next stats polling cycle
     Ok(())
 }
