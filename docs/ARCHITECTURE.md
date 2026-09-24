@@ -13,7 +13,7 @@ Karena VPS/CI environment umumnya headless (tanpa `webkit2gtk`/`pkg-config`), se
 ```
 9gauge/
 ├── crates/
-│   └── 9gauge-core/        # Pure Rust, headless, 100% unit-testable di VPS/CI
+│   └── gauge-core/        # Pure Rust, headless, 100% unit-testable di VPS/CI
 │       ├── telemetry/      # SSE + REST client, auth strategies, reconnect FSM
 │       ├── models.rs       # Fail-open serde contracts (#[serde(default)])
 │       └── state.rs        # ArcSwap<AppState>, ring buffer
@@ -22,7 +22,7 @@ Karena VPS/CI environment umumnya headless (tanpa `webkit2gtk`/`pkg-config`), se
 └── Cargo.toml              # [workspace] members = ["crates/*", "src-tauri"]
 ```
 
-Aturan: `src-tauri` dilarang berisi logic telemetri; ia hanya mengonsumsi `9gauge-core`.
+Aturan: `src-tauri` dilarang berisi logic telemetri; ia hanya mengonsumsi `gauge-core`.
 
 ---
 

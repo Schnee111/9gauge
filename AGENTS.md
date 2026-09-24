@@ -22,7 +22,7 @@ pnpm dev
 pnpm tauri build
 
 # Headless core (testable di VPS tanpa GUI deps)
-cargo test -p 9gauge-core
+cargo test -p gauge-core
 ```
 
 ### Linting & Formatting
@@ -40,7 +40,7 @@ pnpm lint
 
 ## Architectural Guardrails (NON-NEGOTIABLE)
 
-0. **Headless Core Split:** Semua logic telemetri/auth/state hidup di `crates/9gauge-core` (pure Rust, testable tanpa GUI). `src-tauri` hanya shell (tray/window/IPC) yang mengonsumsi core — dilarang berisi parsing SSE atau auth logic.
+0. **Headless Core Split:** Semua logic telemetri/auth/state hidup di `crates/gauge-core` (pure Rust, testable tanpa GUI). `src-tauri` hanya shell (tray/window/IPC) yang mengonsumsi core — dilarang berisi parsing SSE atau auth logic.
 1. **Zero-Flicker Pre-Warming:** Never instantiate windows on-demand on tray click. Windows must be initialized dormant (`visible: false`), pre-positioned, and unhidden in <30ms.
 2. **Tabular Figures Only:** All metrics, tokens, percentages, and timestamps MUST use `JetBrains Mono` with `font-feature-settings: "tnum"`. No text wobble allowed.
 3. **Suspended Webview Governance:** Popover hidden = `window.hide()` + IPC pause signal ke frontend (MVP). Deep COM suspend (`TrySuspend`) adalah optimasi P2, bukan dependensi MVP.

@@ -1,0 +1,26 @@
+[package]
+name = "gauge-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Headless telemetry core for the 9Gauge desktop HUD: auth strategies, SSE/REST ingestion, lock-free state."
+
+[dependencies]
+tokio.workspace = true
+reqwest.workspace = true
+eventsource-stream.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+arc-swap.workspace = true
+compact_str.workspace = true
+secrecy.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+futures.workspace = true
+hex.workspace = true
+sha2.workspace = true
+url.workspace = true
+
+[dev-dependencies]
+# No GUI deps allowed in this crate — must build/test on headless VPS/CI.
+tokio = { workspace = true, features = ["test-util"] }
