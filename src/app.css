@@ -1,0 +1,62 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Ambient Void Substrates */
+  --bg-app-dark: rgba(13, 15, 20, 0.82);
+  --bg-app-light: rgba(255, 255, 255, 0.78);
+
+  /* Frosted Glass Layers */
+  --glass-card: rgba(255, 255, 255, 0.04);
+  --glass-card-hover: rgba(255, 255, 255, 0.08);
+
+  /* Double-Bezel Specular Highlights */
+  --bezel-outer: 1px solid rgba(255, 255, 255, 0.12);
+  --bezel-inner: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+
+  /* Status Inks (High Fidelity, Muted Tone) */
+  --ink-healthy: #2e9e6b;
+  --ink-warning: #d99a2b;
+  --ink-critical: #d4553f;
+  --ink-neutral: #717682;
+
+  /* Data Segment Accents */
+  --token-prompt: #60a5fa;
+  --token-output: #a78bfa;
+  --token-cache: #34d399;
+}
+
+/* Non-negotiable tabular numbers */
+.tnum,
+.font-mono {
+  font-feature-settings: "tnum" 1;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Discrete glass card styling */
+.glass-panel {
+  background-color: var(--glass-card);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.glass-panel:hover {
+  background-color: var(--glass-card-hover);
+}
+
+/* Custom scrollbar for HUD popover */
+::-webkit-scrollbar {
+  width: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.24);
+}
