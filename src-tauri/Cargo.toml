@@ -4,6 +4,8 @@ version = "0.1.0"
 edition = "2021"
 description = "9Gauge desktop telemetry companion shell"
 
+[workspace]
+
 [lib]
 name = "gauge_shell_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
