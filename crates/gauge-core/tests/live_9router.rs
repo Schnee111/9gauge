@@ -55,7 +55,10 @@ async fn test_live_rest_and_sse_ingestion() {
         snapshot.total_requests > 0,
         "Expected total_requests > 0 on live instance"
     );
-    assert!(!snapshot.by_provider.is_empty(), "Expected non-empty by_provider");
+    assert!(
+        !snapshot.by_provider.is_empty(),
+        "Expected non-empty by_provider"
+    );
     println!(
         "Live REST verified: {} requests, {} total tokens",
         snapshot.total_requests,
@@ -96,5 +99,8 @@ async fn test_live_rest_and_sse_ingestion() {
 
     sse_handle.abort();
 
-    assert!(received, "SSE stream did not deliver a snapshot within 3 seconds");
+    assert!(
+        received,
+        "SSE stream did not deliver a snapshot within 3 seconds"
+    );
 }
