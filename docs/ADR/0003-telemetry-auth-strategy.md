@@ -22,7 +22,7 @@ Auth gates in `dashboardGuard.js` for `/api/usage/*`:
 Additional constraint: `POST /api/auth/login` enforces per-IP lockout (`checkLock`/`recordFail`), so 9Gauge must never spam retries.
 
 ## Decision
-`9gauge-core` implements a `Strategy` enum selected per host profile:
+`gauge-core` implements a `Strategy` enum selected per host profile:
 
 ```rust
 pub enum AuthStrategy {
