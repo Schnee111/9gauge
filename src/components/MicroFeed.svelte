@@ -12,10 +12,11 @@
   const visibleRequests = $derived((requests || []).slice(0, 4));
 
   function getStatusBadge(status: string) {
-    if (!status || status.toLowerCase() === 'ok' || status === '200') {
+    const s = (status || '').toLowerCase().trim();
+    if (!s || s === 'ok' || s.startsWith('200') || s.includes('ok')) {
       return { text: '200 OK', color: 'text-emerald-400' };
     }
-    if (status.includes('429')) {
+    if (s.includes('429')) {
       return { text: '429 LIM', color: 'text-amber-400' };
     }
     return { text: status, color: 'text-rose-400' };
